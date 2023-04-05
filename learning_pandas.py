@@ -70,3 +70,13 @@ def drop_nan_mod(df_mod1,df_mod2,df1_prefix,df2_prefix,col_in_common = "Time"):
 
     return 10
 '''
+df = pd.DataFrame({
+    'A': [1, np.nan, 3],
+    'B': [4, 5, np.nan],
+    'C': [7, 8, 9]
+})
+
+# check if any element along the rows is null or missing
+result = df.isnull().any(axis=1)
+
+print(result)

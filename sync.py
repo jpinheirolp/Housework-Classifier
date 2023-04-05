@@ -86,47 +86,50 @@ pd.DataFrame.to_csv(pods_concat,'./Generated Data/pod_concat.csv')
 
 # '''
 
-#'''
+'''
 
-libelium_mod1_df = pd.read_table("./Libelium new/mod1.txt",sep=';')
-libelium_mod2_df = pd.read_table("./Libelium new/mod2.txt",sep=';')
+libelium_mod1_df = pd.read_table("./Libelium new/mod1.txt",sep=';')#, parse_dates=["Time"])
+libelium_mod2_df = pd.read_table("./Libelium new/mod2.txt",sep=';')#, parse_dates=["Time"])
 
 # libelium_mod1_df = libelium_mod1_df.dropna()
 # libelium_mod2_df = libelium_mod2_df.dropna()
 
-print(libelium_mod1_df.columns)
-print(libelium_mod2_df.columns) 
 
 #libelium_mod2_df.drop("Time",axis=1, inplace= True)
 
+libelium_mod3_df = libelium_mod2_df.loc[:][:]#.reset_index(drop=True)
+libelium_mod4_df = libelium_mod1_df.loc[:][:]#.reset_index(drop=True)
 
-libelium_mod3_df = libelium_mod2_df.loc[:][:100]
-libelium_mod4_df = libelium_mod1_df.loc[:][:100]
+libelium_mod3_df["Time"] = pd.to_datetime(libelium_mod3_df["Time"], format='%d/%m/%Y %H:%M:%S')
+libelium_mod4_df["Time"] = pd.to_datetime(libelium_mod4_df["Time"], format='%d/%m/%Y %H:%M:%S')
 
 #libelium_mod3_df["Time"] = libelium_mod3_df["Time"].astype("datetime64[s]",copy=False)
 
-libelium_mod3_df, libelium_mod4_df = remove_nan_dfs(libelium_mod3_df, libelium_mod4_df)
+#libelium_mod3_df, libelium_mod4_df = remove_nan_dfs(libelium_mod3_df, libelium_mod4_df)
 
+libelium_mod3_df = fills_empty_values(libelium_mod3_df)
+libelium_mod4_df = fills_empty_values(libelium_mod4_df)
 
-#libelium_mod3_df = fills_empty_values(libelium_mod3_df.copy())
-
-libelium_mod2_freq20_df = create_mv_avg_df(libelium_mod3_df,20)
-libelium_mod1_freq20_df = create_mv_avg_df(libelium_mod4_df,20)
-
-
-
+print("fo00i\n\n\n\n")
 
 print(libelium_mod3_df)
 print(libelium_mod4_df)
 
 
+#libelium_mod3_df = fills_empty_values(libelium_mod3_df.copy())
 
-print(libelium_mod2_freq20_df.columns)
+libelium_mod2_freq10_df = create_mv_avg_df(libelium_mod3_df,10)
+libelium_mod1_freq10_df = create_mv_avg_df(libelium_mod4_df,10)
 
-# libelium_concat_freq20_df = merge_ajusting_col_names(libelium_mod1_freq20_df,libelium_mod2_freq20_df,"mod1","mod2")
-# pd.DataFrame.to_csv(libelium_concat_freq20_df,'./Generated Data/libelium_concat_freq20.csv')
-# pd.DataFrame.to_csv(libelium_mod2_freq20_df,'./Generated Data/libelium_mod2_freq20.csv')
-# pd.DataFrame.to_csv(libelium_mod1_freq20_df,'./Generated Data/libelium_mod1_freq20.csv')
+
+
+
+
+libelium_concat_freq10_df = merge_ajusting_col_names(libelium_mod1_freq10_df,libelium_mod2_freq10_df,"mod1","mod2")
+print(libelium_concat_freq10_df.shape)
+pd.DataFrame.to_csv(libelium_concat_freq10_df,'./Generated Data/libelium_concat_freq10.csv')
+pd.DataFrame.to_csv(libelium_mod2_freq10_df,'./Generated Data/libelium_mod2_freq10.csv')
+pd.DataFrame.to_csv(libelium_mod1_freq10_df,'./Generated Data/libelium_mod1_freq10.csv')
 
 
 
@@ -147,3 +150,59 @@ for l in range(617035):
         print(l)
         break
 '''
+
+'''
+pod_concat_df = pd.read_csv('./Generated Data/pod_concat.csv')
+piano_concat_df = pd.read_csv('./Generated Data/piano_concat.csv')
+libellium_conct_freq20 = pd.read_csv('./Generated Data/libelium_concat_freq20.csv')
+
+pod_concat_df.rename(columns={"pod_85_Time": "Time"}, inplace=True)
+piano_concat_df.rename(columns={"piano_thick_Time": "Time"}, inplace=True)
+
+pod_concat_df["Time"] = pd.to_datetime(pod_concat_df["Time"])
+piano_concat_df["Time"] = pd.to_datetime(piano_concat_df["Time"])
+libellium_conct_freq20["Time_Interval"] = pd.to_datetime(libellium_conct_freq20["Time_Interval"])
+
+piano_concat_df_freq20 = create_mv_avg_df(piano_concat_df,20)
+pod_concat_df_freq20 = create_mv_avg_df(pod_concat_df,20)
+
+pd.DataFrame.to_csv(pod_concat_df_freq20,'./Generated Data/pod_concat_df_freq20.csv')
+pd.DataFrame.to_csv(piano_concat_df_freq20,'./Generated Data/piano_concat_df_freq20.csv')
+
+#'''
+
+#'''
+pod_concat = pd.read_csv('./Generated Data/pod_concat.csv')#[:][:100000]
+piano_concat = pd.read_csv('./Generated Data/piano_concat.csv')#[:][:100000]
+libellium_concat_freq10 = pd.read_csv('./Generated Data/libelium_concat_freq10.csv')#[:][:100000]
+
+libellium_concat_freq10.rename(columns = {"Time_Interval":"Time"},inplace=True)
+libellium_concat_freq10["Time"] = pd.to_datetime(libellium_concat_freq10["Time"], format='%Y-%m-%d %H:%M:%S') 
+
+pod_concat.rename(columns={"pod_85_Time": "Time"}, inplace=True)
+piano_concat.rename(columns={"piano_thick_Time": "Time"}, inplace=True)
+
+pod_concat["Time"] = pd.to_datetime(pod_concat["Time"], infer_datetime_format=True)
+piano_concat["Time"] = pd.to_datetime(piano_concat["Time"], infer_datetime_format=True)
+
+
+print(pod_concat.columns)
+print(piano_concat.columns)
+print(libellium_concat_freq10.columns)
+
+pod_piano_concat_df = pod_concat.merge(piano_concat,how="inner",on="Time")
+
+pd.DataFrame.to_csv(pod_piano_concat_df,'./Generated Data/pod_piano_concat.csv')
+
+
+pod_piano_set = set(pod_piano_concat_df["Time"])
+intersection_set = pod_piano_set.intersection(set(libellium_concat_freq10["Time"]))
+print(len(pod_piano_set - intersection_set))
+
+sync_df = pod_piano_concat_df.merge(libellium_concat_freq10,how="inner",on="Time")
+
+sync_df.drop(["Unnamed: 0_x","Unnamed: 0_y"],axis=1,inplace=True)
+
+pd.DataFrame.to_csv(sync_df,'./Generated Data/sync_df.csv')
+
+# Faz tudo com a freq 10 mesmo ''' 
