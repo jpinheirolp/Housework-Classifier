@@ -1,7 +1,8 @@
 import pandas as pd
 from sync_lib import *
-'''
 
+# Reading the piano sensor files and concatenating them into piano_concat.csv 
+'''
 piano_thick_df = pd.read_csv("./Piano/IMT_Thick.csv",sep=';')
 piano_thin_df = pd.read_csv("./Piano/IMT_Thin.csv",sep=';')
 piano_pico_df = pd.read_csv("./Piano/IMT_PICO.csv",sep=';')
@@ -44,6 +45,8 @@ pd.DataFrame.to_csv(piano_concat,'./Generated Data/piano_concat.csv')
 
 #'''
 
+# Reading the pod sensor files and concatenating them into pod_concat.csv
+
 '''
 
 pods_85_df = pd.read_csv("./Pods/POD 200085.csv",sep=';')
@@ -85,6 +88,8 @@ pods_concat = pd.concat([pods_85_df,pods_86_df,pods_88_df],axis=1)
 pd.DataFrame.to_csv(pods_concat,'./Generated Data/pod_concat.csv')
 
 # '''
+
+# Reading the libellium sensor files, changing there frequence to 10 with the create_mv_avg_df func and concatenating them into libelium_concat_freq10.csv
 
 '''
 
@@ -143,13 +148,7 @@ pd.DataFrame.to_csv(libelium_mod1_freq10_df,'./Generated Data/libelium_mod1_freq
 
 #'''
 
-# finding first ocurrance os different value in Time column
-'''
-for l in range(617035):
-    if pods_85_df["Time"].iloc[l] != pods_86_df["Time"].iloc[l]:
-        print(l)
-        break
-'''
+#Not used in the final csv file: I was just changing the frequency of pod and piano to 20 
 
 '''
 pod_concat_df = pd.read_csv('./Generated Data/pod_concat.csv')
@@ -171,7 +170,9 @@ pd.DataFrame.to_csv(piano_concat_df_freq20,'./Generated Data/piano_concat_df_fre
 
 #'''
 
-#'''
+# merging all pod_concat.csv, piano_concat.csv, libelium_concat_freq10.csv into sync.csv and ajusting column names
+
+'''
 pod_concat = pd.read_csv('./Generated Data/pod_concat.csv')#[:][:100000]
 piano_concat = pd.read_csv('./Generated Data/piano_concat.csv')#[:][:100000]
 libellium_concat_freq10 = pd.read_csv('./Generated Data/libelium_concat_freq10.csv')#[:][:100000]
@@ -181,6 +182,9 @@ libellium_concat_freq10["Time"] = pd.to_datetime(libellium_concat_freq10["Time"]
 
 pod_concat.rename(columns={"pod_85_Time": "Time"}, inplace=True)
 piano_concat.rename(columns={"piano_thick_Time": "Time"}, inplace=True)
+
+
+
 
 pod_concat["Time"] = pd.to_datetime(pod_concat["Time"], infer_datetime_format=True)
 piano_concat["Time"] = pd.to_datetime(piano_concat["Time"], infer_datetime_format=True)
@@ -205,4 +209,14 @@ sync_df.drop(["Unnamed: 0_x","Unnamed: 0_y"],axis=1,inplace=True)
 
 pd.DataFrame.to_csv(sync_df,'./Generated Data/sync_df.csv')
 
-# Faz tudo com a freq 10 mesmo ''' 
+#  ''' 
+
+#removind strange columns that appeared
+'''
+
+sync_df = pd.read_csv('./Generated Data/sync_df.csv')
+print(sync_df.columns,sync_df.shape)
+sync_df.drop(["Unnamed: 0","Unnamed: 0.1"],axis=1,inplace=True)
+pd.DataFrame.to_csv(sync_df,'./Generated Data/sync_df.csv')
+
+'''
