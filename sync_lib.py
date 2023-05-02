@@ -1,6 +1,9 @@
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from nltk.util import ngrams
 
 #Gets an dataframe with some empty values and fills with the previous values from the same column
 def fills_empty_values(df):
@@ -30,7 +33,6 @@ def create_mv_avg_df(df_wrong_freq, desired_freq):
     num_cols_interval = 0
     timestamp_mv_avg = initial_time_value
 
-    print(timestamp_mv_avg)
     #fix date format, pandas is changing the order of month and day for some reason
     num_col_output = 0
     for row in tqdm(df_wrong_freq.index):
@@ -137,62 +139,159 @@ def remove_nan_dfs(df1_intersect,df2_intersect,window_size= 5,max_phase_dif = 8,
     df2_without_nan = df2_intersect.reset_index(drop=True)
     return df1_without_nan,df2_without_nan
 
+# test if values make sense after normalyzing
+def separates_non_numerical_columns(df: pd.DataFrame):
+    non_numerical_columns = dict()
+
+    for col_name, col_data in df.items():
+        try: 
+            df[col_name] = df[col_name].astype(float)
+        except:
+            non_numerical_columns[col_name] = col_data
+            df.drop([col_name], axis=1, inplace=True)
+    return df, non_numerical_columns
+
+def normalyzing_df(df: pd.DataFrame):
+    numerical_df, non_numerical_columns = separates_non_numerical_columns(df)
+    values_df = numerical_df.values
+    columns_df = numerical_df.columns
+
+    normalized_values = StandardScaler().fit_transform(values_df)
+    normalized_df = pd.DataFrame(data = normalized_values, columns=columns_df)
+    
+    for key, value in non_numerical_columns.items():
+        normalized_df[key] = value
+    return normalized_df
+#test it also
+def pca_dimension_reduction(normalized_df: pd.DataFrame, num_dim_reductiopn: int):
+    normalized_num_df, non_numerical_columns = separates_non_numerical_columns(normalized_df)
+    values_df = normalized_num_df.values
+    pca_instance = PCA(n_components=num_dim_reductiopn)
+    dimension_reducted_values = pca_instance.fit_transform(values_df)
+    columns_name_after_reduction = [f"eigenvalue_{i+1}"  for i in range(num_dim_reductiopn)]
+    dimension_reducted_df = pd.DataFrame(data = dimension_reducted_values, columns=columns_name_after_reduction)
+    print('Explained variation per principal component: {}'.format(pca_instance.explained_variance_ratio_))
+
+    for key, value in non_numerical_columns.items():
+        dimension_reducted_df[key] = value
+    return dimension_reducted_df
 
 class Execution_Activity():
-    def __init__(self, execution_df: pd.DataFrame):
+    def __init__(self, execution_df: pd.DataFrame, begining_time: pd.DatetimeTZDtype, end_time: pd.DatetimeTZDtype, comment: str):
         self.data = execution_df
+        self.begining_time = begining_time
+        self.end_time = end_time
+        self.comment = comment
+
+    def get_data(self):
+        return self.data
+        
+
 class Sequence_Activity_Execution:
-    def __init__(self) -> None:
+    def __init__(self,name) -> None:
         self.data = []
+        self.name = name
+        
     def append_execution_sequence(self, execution: Execution_Activity):
         self.data.append(execution)
-class House_Activitys_Learning_Base:
+    
+    def create_ngrams_df(self, original_df ,ngram_size):
+       
+        # define a function to generate n-grams for each column
+        
+        def to_ngrams(col:pd.Series, ngram_size:int = 300) -> pd.Series:
+            result = []
+            #print("col",col.size,col)
+            for i in range(col.size - ngram_size + 1):
+                ngram = pd.Series(col[i:i+ngram_size],dtype='float32')
+                ngram_np_array = np.array(ngram,dtype='float32')
+                result.append(ngram_np_array)
+
+            result = pd.Series(result)
+            return result
+        ngram_df = original_df.apply(to_ngrams, axis=0, args=(ngram_size,))
+        #print(ngram_df)
+        return ngram_df
+
+        
+
+    def prepare_activity_input_classification(self, ngram_size:int = 300) -> tuple :
+        input_ml_model_df = pd.DataFrame()
+        for execution in self.data:
+            execution_df = execution.get_data()
+            input_ml_model_df = pd.concat([input_ml_model_df ,execution_df],axis=0)
+            
+            #print(self.name + " execution ",execution_df.size)
+        input_ml_model_df = self.create_ngrams_df(input_ml_model_df, ngram_size)
+        #print("ngrams",input_ml_model_df)
+        input_series = pd.Series([self.name] * input_ml_model_df.shape[0] )
+        #print("input_ml_model_df",input_series.shape, input_ml_model_df)
+        return input_ml_model_df, input_series
+
+class House_Activitys_Learning_Base: # take about when to convert time str to datetime
     def __init__(self, desired_freq: int, synchronized_activitys_df: pd.DataFrame ,time_schedule_df: pd.DataFrame):
         self.data = {}
         for activity in time_schedule_df["activity"].unique():
-            self.data[activity] = Sequence_Activity_Execution()
+            self.data[activity] = Sequence_Activity_Execution(activity)
         synchronized_activitys_df_time_stamps_set = set(synchronized_activitys_df["Time"])
+        #check_number_of_activitys = 0        
 
-        for row in time_schedule_df.iterrows:
-            time_begining = time_schedule_df[row]["Started"]
-            time_end = time_schedule_df[row]["Ended"]
-            activity_name = time_schedule_df[row]["activity"]
+        for index, row in time_schedule_df.iterrows():
+            time_begining = row["Started"]
+            time_begining = pd.to_datetime(time_begining, format='%d/%m/%Y %H:%M')
+            time_end = row["Ended"]
+            time_end = pd.to_datetime(time_end, format='%d/%m/%Y %H:%M')
+            activity_name = row["activity"]
+            activity_comment = row["Comments"]
             activitys_timenstamp_sequence = pd.date_range(start= time_begining, end= time_end, freq= f"{desired_freq}S")
             activitys_timenstamp_set = set(activitys_timenstamp_sequence)
-            activitys_timenstamp_set_dif = activitys_timenstamp_set - synchronized_activitys_df_time_stamps_set
+            activitys_timenstamp_set_intersect = activitys_timenstamp_set.intersection(synchronized_activitys_df_time_stamps_set)
+            execution_df = synchronized_activitys_df[synchronized_activitys_df["Time"].isin(activitys_timenstamp_set_intersect)]
+            #check_number_of_activitys += execution_df.shape[0] 
+            if activitys_timenstamp_set_intersect == set():
+                print("data is empty for activity", activity_name, time_begining, time_end)
+                continue
             
-            execution_df = synchronized_activitys_df[synchronized_activitys_df["Time"] in activitys_timenstamp_set_dif]
-            execution_activity_instance = Execution_Activity(execution_df)
+
+            execution_activity_instance = Execution_Activity(execution_df,time_begining,time_end,activity_comment)
             self.data[activity_name].append_execution_sequence(execution_activity_instance)
-    
+        #print("check_number_of_activitys",check_number_of_activitys)
+
+    def convert_df_to_3d_np_array(self, df: pd.DataFrame) -> np.array:
+        # df_np_array = np.array(df, dtype="float32")
+        # df_np_array = df_np_array.reshape(df_np_array.shape[0],df_np_array.shape[1],1)
+        df_np_array = np.zeros((df.shape[0],df.shape[1],df.iloc[0,0].shape[0]),dtype="float32")
+        print(df.shape,df_np_array.shape)
+        for i in tqdm(range(df_np_array.shape[0])):
+            for j in range(df_np_array.shape[1]):
+                    df_np_array[i,j] = df.iloc[i,j]
+        return df_np_array
+
+    def shuffle_data_classification(self,input_ml_model_df: pd.DataFrame, input_series: pd.Series) -> tuple:
+        joined_df = pd.concat([input_ml_model_df,input_series],axis=1)
+        joined_df = joined_df.sample(frac=1).reset_index(drop=True)
+        return joined_df.iloc[:,:-1], joined_df.iloc[:,-1]
+
+    def prepare_data_input_classification(self, ngram_size:int = 300, output_dtype="np_array") -> tuple :
+        input_ml_model_df = pd.DataFrame()
+        input_series = pd.Series(dtype='float32')
+        for activity_name in self.data:
+            activity = self.data[activity_name]
+            activity_df, class_series = activity.prepare_activity_input_classification(ngram_size)
+            input_ml_model_df = pd.concat([input_ml_model_df ,activity_df],axis=0)
+            input_series =  pd.concat([input_series, class_series])
+        
+        input_ml_model_df.drop("Time",axis=1,inplace=True)
+
+        shuffled_input_ml_model_df, shuffled_input_series = self.shuffle_data_classification(input_ml_model_df, input_series)    
+
+        if output_dtype == "np_array":
+            np_input_ml_model_df = self.convert_df_to_3d_np_array(shuffled_input_ml_model_df)
+            np_input_series = np.array(shuffled_input_series)
+
+        
+        return np_input_ml_model_df, np_input_series
     
 
-#''' thats just a brain storm for the next function
+#''' next step: solve de deprecation on sktime and test model
 
-    
-    # next step: separate the time sequences for each activity
-    # class House_Activitys : dict {
-    #   init(df_data,df_time,desired_freq):      
-    #       df_data_time_stamps_set = set(df_data["Time"])
-    #       for row in df_time.iterrows:
-    #           execution_activity_df = pd.DataFrame()
-    #           time_beggining = df_time[row]["Started"]
-    #           time_end = df_time[row]["end"]
-    #           activity_name = df_time[row]["activity"]
-    #           activitys_timenstamp_sequence = pd.date_range(start= time_beggining, end= time_end, freq= f"{desired_freq}S")
-    #           activitys_timenstamp_set = set(activitys_timenstamp_sequence)
-    #           activitys_timenstamp_set_dif = activitys_timenstamp_set - df_data_time_stamps_set
-    #           if len(activitys_timenstamp_set - activitys_timenstamp_set_dif) = 0:
-    #              execution_activity_df = df_data[activitys_timenstamp_set_dif]["Time"]
-    #              continue
-    #           for time_stamp in activitys_timenstamp_set:
-    #               execution_activity_df.append(time_stamp)
-    #           Activitys_Dict[activity_name].append(execution_activity_df)
-    #           
-    #   class Activity: list [
-    #       class Activity_Execution: df
-    # ]
-    # }
-    #
-    
-    

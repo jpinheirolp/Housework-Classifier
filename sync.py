@@ -1,5 +1,13 @@
 import pandas as pd
 from sync_lib import *
+import sklearn as skl
+from sklearn.preprocessing import StandardScaler
+from sklearn.decomposition import PCA
+from nltk.util import ngrams
+from sktime.classification.distance_based import KNeighborsTimeSeriesClassifier
+from tqdm import tqdm
+from time import time
+
 
 # Reading the piano sensor files and concatenating them into piano_concat.csv 
 '''
@@ -211,12 +219,34 @@ pd.DataFrame.to_csv(sync_df,'./Generated Data/sync_df.csv')
 
 #  ''' 
 
-#removind strange columns that appeared
+#solve problem of needing to remove strange columns that appeared
+# '''
+
+sync_df = pd.read_csv('./Generated Data/sync_df_without_piano.csv')
+#print(sync_df.columns,sync_df.shape)
+
+sync_df["Time"] = pd.to_datetime(sync_df["Time"], format='%Y-%m-%d %H:%M:%S') 
+
+sync_df_normalazyde = normalyzing_df(sync_df)
+
+sync_df_pca_reducted = pca_dimension_reduction(sync_df_normalazyde,4)
+
+#pd.DataFrame.to_csv(sync_df_pca_reducted,'./Generated Data/sync_df_pca_reducted.csv')
+
+activitys_df = pd.read_csv('./Activitys_time_schedule.csv') 
+ml_training_data_structure = House_Activitys_Learning_Base(10, sync_df_pca_reducted, activitys_df)
+
 '''
 
-sync_df = pd.read_csv('./Generated Data/sync_df.csv')
-print(sync_df.columns,sync_df.shape)
-sync_df.drop(["Unnamed: 0","Unnamed: 0.1"],axis=1,inplace=True)
-pd.DataFrame.to_csv(sync_df,'./Generated Data/sync_df.csv')
+activitys_dict = ml_training_data_structure.data
 
-'''
+for key ,activ in activitys_dict.items():
+    print("\n", key, "\n")
+    for exec in activ.data:
+        print(exec.data.size)
+#'''
+input_ml_model_df, input_series = ml_training_data_structure.prepare_data_input_classification(300)
+print(input_series.shape,input_ml_model_df.shape)
+
+np.save('./Generated Data/input_ml_model_df.npy',input_ml_model_df)
+np.save('./Generated Data/input_series.npy',input_series)
