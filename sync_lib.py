@@ -188,23 +188,24 @@ class Execution_Activity():
         
 
 class Sequence_Activity_Execution:
-    def __init__(self,name) -> None:
+    def __init__(self,name: str, numerical_type: np.object) -> None:
         self.data = []
         self.name = name
+        self.numerical_type = numerical_type
         
-    def append_execution_sequence(self, execution: Execution_Activity):
+    def append_execution_sequence(self, execution: Execution_Activity, ):
         self.data.append(execution)
     
     def create_ngrams_df(self, original_df ,ngram_size):
        
         # define a function to generate n-grams for each column
         
-        def to_ngrams(col:pd.Series, ngram_size:int = 300) -> pd.Series:
+        def to_ngrams(col:pd.Series, ngram_size:int = 30) -> pd.Series:
             result = []
             #print("col",col.size,col)
             for i in range(col.size - ngram_size + 1):
-                ngram = pd.Series(col[i:i+ngram_size],dtype='float32')
-                ngram_np_array = np.array(ngram,dtype='float32')
+                ngram = pd.Series(col[i:i+ngram_size],dtype= self.numerical_type)
+                ngram_np_array = np.array(ngram,dtype= self.numerical_type)
                 result.append(ngram_np_array)
 
             result = pd.Series(result)
@@ -215,7 +216,7 @@ class Sequence_Activity_Execution:
 
         
 
-    def prepare_activity_input_classification(self, ngram_size:int = 300) -> tuple :
+    def prepare_activity_input_classification(self, ngram_size:int = 30) -> tuple :
         input_ml_model_df = pd.DataFrame()
         for execution in self.data:
             execution_df = execution.get_data()
@@ -229,10 +230,11 @@ class Sequence_Activity_Execution:
         return input_ml_model_df, input_series
 
 class House_Activitys_Learning_Base: # take about when to convert time str to datetime
-    def __init__(self, desired_freq: int, synchronized_activitys_df: pd.DataFrame ,time_schedule_df: pd.DataFrame):
+    def __init__(self, desired_freq: int, synchronized_activitys_df: pd.DataFrame ,time_schedule_df: pd.DataFrame, numerical_type: np.object = np.single):
         self.data = {}
+        self.numerical_type = numerical_type
         for activity in time_schedule_df["activity"].unique():
-            self.data[activity] = Sequence_Activity_Execution(activity)
+            self.data[activity] = Sequence_Activity_Execution(activity,numerical_type= self.numerical_type)
         synchronized_activitys_df_time_stamps_set = set(synchronized_activitys_df["Time"])
         #check_number_of_activitys = 0        
 
@@ -258,9 +260,9 @@ class House_Activitys_Learning_Base: # take about when to convert time str to da
         #print("check_number_of_activitys",check_number_of_activitys)
 
     def convert_df_to_3d_np_array(self, df: pd.DataFrame) -> np.array:
-        # df_np_array = np.array(df, dtype="float32")
+        # df_np_array = np.array(df, dtype= self.numerical_type)
         # df_np_array = df_np_array.reshape(df_np_array.shape[0],df_np_array.shape[1],1)
-        df_np_array = np.zeros((df.shape[0],df.shape[1],df.iloc[0,0].shape[0]),dtype="float32")
+        df_np_array = np.zeros((df.shape[0],df.shape[1],df.iloc[0,0].shape[0]),dtype= self.numerical_type)
         print(df.shape,df_np_array.shape)
         for i in tqdm(range(df_np_array.shape[0])):
             for j in range(df_np_array.shape[1]):
@@ -272,9 +274,9 @@ class House_Activitys_Learning_Base: # take about when to convert time str to da
         joined_df = joined_df.sample(frac=1).reset_index(drop=True)
         return joined_df.iloc[:,:-1], joined_df.iloc[:,-1]
 
-    def prepare_data_input_classification(self, ngram_size:int = 300, output_dtype="np_array") -> tuple :
+    def prepare_data_input_classification(self, ngram_size:int = 30, output_dtype="np_array") -> tuple :
         input_ml_model_df = pd.DataFrame()
-        input_series = pd.Series(dtype='float32')
+        input_series = pd.Series(dtype= self.numerical_type)
         for activity_name in self.data:
             activity = self.data[activity_name]
             activity_df, class_series = activity.prepare_activity_input_classification(ngram_size)

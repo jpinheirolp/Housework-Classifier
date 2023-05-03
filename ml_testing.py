@@ -42,10 +42,10 @@ end_time = time()
 print("time to fit "+ str(n_samples_train),end_time - start_time)
 
 
-# start_time = time()
-# predicted_acttivitys = knn_dtw_classifier.predict(input_x_test[-1:])
-# end_time = time()
-# print("time to predict "+ str(n_samples_train),end_time - start_time)
+start_time = time()
+predicted_acttivitys = knn_dtw_classifier.predict(input_x_test[-1:])
+end_time = time()
+print("time to predict "+ str(n_samples_train),end_time - start_time)
 
 len_test = input_x_test.shape[0]
 
@@ -56,10 +56,10 @@ for i in range(1, n_checkpoints+1):
     checkpoint = int(len_test * ( i / n_checkpoints) )
     print("checkpoint",checkpoint,previous_checkpoint)
     predicted_acttivitys = knn_dtw_classifier.predict(input_x_test[previous_checkpoint:checkpoint])
+    predicted_acttivitys.tofile(f'model_output/output{previous_checkpoint}_{checkpoint}.txt',sep=",")
+    np.save(f'model_output/output{previous_checkpoint}_{checkpoint}.npy',predicted_acttivitys)
     previous_checkpoint = checkpoint
-    predicted_acttivitys.tofile(f'model_output/output{i}.txt',sep=",")
-    np.save(f'model_output/output{i}.npy',predicted_acttivitys)
-    print(predicted_acttivitys)
+    #print(predicted_acttivitys)
     
 print(input_series[29102:])
 knn_dtw_classifier.reset()
