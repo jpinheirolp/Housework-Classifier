@@ -7,33 +7,39 @@ import numpy as np
 from sktime.classification.distance_based import KNeighborsTimeSeriesClassifier
 #from tqdm import tqdm
 from time import time
+from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score
+
+
 
 # Load data
-# mabe you made shit while shuffling the data
 
 input_ml_model_df = np.load('Generated Data/input_ml_model_df.npy',allow_pickle=True)
 input_series = np.load('Generated Data/input_series.npy',allow_pickle=True)
 #input_series.tofile('Generated Data/input_series_readable.txt',sep=",")
 
-shape_array = (29115, 4, 300)
+
 n_samples = input_series.shape[0]
 
-# Create the 3D array with random values
-#input_ml_model_df = np.random.rand(*shape_array).astype(np.float32)
+
 
 print("loaded",input_ml_model_df.shape,input_series.shape)
 
 
-percentage_train = 1
+percentage_train = 70
 n_samples_train = int((n_samples*percentage_train) / 100)
 
 
 
-input_x_test = input_ml_model_df[29102:]#[n_samples_train:]
+input_x_test = input_ml_model_df[n_samples_train:]
+input_y_test = input_series[n_samples_train:]
+
+percentage_train = 15
+n_samples_train = int((n_samples*percentage_train) / 100)
 
 input_x_train = input_ml_model_df[:n_samples_train]
 input_y_train = input_series[:n_samples_train]
 
+#'''
 knn_dtw_classifier = KNeighborsTimeSeriesClassifier(n_neighbors=1 , distance="dtw",algorithm = "brute")
 
 start_time = time()
@@ -64,11 +70,23 @@ for i in range(1, n_checkpoints+1):
 print(input_series[29102:])
 knn_dtw_classifier.reset()
 
+# '''
+
+output_file_names = [ 'output0_954.npy', 'output954_1909.npy', 'output1909_2863.npy', 'output2863_3818.npy', 'output3818_4772.npy',
+ 'output4772_5727.npy', 'output5727_6681.npy', 'output6681_7636.npy', 'output7636_8590.npy', 'output8590_9545.npy']
 
 
+output_labels = np.array([])
+for file_name in output_file_names:
+    output_labels = np.append(output_labels,np.load(f'model_output/{file_name}',allow_pickle=True))
+print(output_labels.shape)
+print(input_y_test.shape)
 
-# ''' 
-# Actual Acuracy test 
+# Calculating the accuracy of classifier
+print(f"Accuracy of the classifier is: {accuracy_score(input_y_test, output_labels)}")
+
+print(confusion_matrix(input_y_test, output_labels))
+    # Actual Acuracy test 
 # 
 # shuffle the data by joining the two arrays shuffling and then splitting them again :D 
 # split into 70% train and 30% test 
