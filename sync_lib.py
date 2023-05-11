@@ -214,29 +214,72 @@ class Sequence_Activity_Execution:
         #print(ngram_df)
         return ngram_df
 
-        
-
-    def prepare_activity_input_classification(self, ngram_size:int = 30) -> tuple :
-        input_ml_model_df = pd.DataFrame()
-        for execution in self.data:
+    def extract_samples_from_execution(self,list_of_executions: list) -> pd.DataFrame:
+        concated_samples_df = pd.DataFrame()
+        for execution in list_of_executions:
             execution_df = execution.get_data()
-            input_ml_model_df = pd.concat([input_ml_model_df ,execution_df],axis=0)
-            
-            #print(self.name + " execution ",execution_df.size)
-        input_ml_model_df = self.create_ngrams_df(input_ml_model_df, ngram_size)
-        #print("ngrams",input_ml_model_df)
-        input_series = pd.Series([self.name] * input_ml_model_df.shape[0] )
-        #print("input_ml_model_df",input_series.shape, input_ml_model_df)
-        return input_ml_model_df, input_series
+            concated_samples_df = pd.concat([concated_samples_df ,execution_df],axis=0)
+        return concated_samples_df
+
+    def prepare_activity_input_classification(self ,percentage_for_train: int, days_for_train:list = [], days_for_test:list = [], ngram_size:int = 30) -> tuple :
+
+
+        '''
+         Add argument percentage_for_test
+         Add argument number_days_to_test and number_days_to_train
+         so that they are the a string with the desired day, and the its necessary to iterate over the list of executions and find activitys that have the desired day
+         the respective percentage argument will be ignored unless the number_days_to_test and number_days_to_train are 0
+
+        '''
+
+
+        if percentage_for_train > 0:
+
+            n_activitys = len(self.data)
+            n_activitys_train = int((n_activitys* percentage_for_train) / 100)
+            train_data_from_activity = self.data[:n_activitys_train]
+            test_data_from_activity = self.data[n_activitys_train:]
+
+        elif len(days_for_train) > 0 and len(days_for_test) > 0:
+            train_data_from_activity = []
+            test_data_from_activity = []
+            for execution in self.data:
+                if str(execution.begining_time).split(" ")[0] in days_for_train:
+                    train_data_from_activity.append(execution)
+                elif str(execution.begining_time).split(" ")[0] in days_for_test:
+                    test_data_from_activity.append(execution)
+                else:
+                    pass
+        else:
+            raise Exception("Invalid arguments: percentage_for_train or days_for_train and days_for_test must be provided")
+
+        train_input_ml_model_df = pd.DataFrame(columns=['eigenvalue_1', 'eigenvalue_2', 'eigenvalue_3', 'eigenvalue_4', 'Time'])
+        test_input_ml_model_df = pd.DataFrame(columns=['eigenvalue_1', 'eigenvalue_2', 'eigenvalue_3', 'eigenvalue_4', 'Time'])
+        train_input_series = pd.Series(dtype="float32")
+        test_input_series = pd.Series(dtype="float32")
+
+        if len(train_data_from_activity) != 0:
+            train_input_ml_model_df = self.extract_samples_from_execution(train_data_from_activity)
+            train_input_ml_model_df = self.create_ngrams_df(train_input_ml_model_df, ngram_size)        
+            train_input_series = pd.Series([self.name] * train_input_ml_model_df.shape[0] )
+
+        if len(test_data_from_activity) != 0:
+            test_input_ml_model_df = self.extract_samples_from_execution(test_data_from_activity)
+            test_input_ml_model_df = self.create_ngrams_df(test_input_ml_model_df, ngram_size)
+            test_input_series = pd.Series([self.name] * test_input_ml_model_df.shape[0] )
+
+        #print(train_input_ml_model_df.columns ,train_input_series)
+        return train_input_ml_model_df, train_input_series, test_input_ml_model_df, test_input_series
 
 class House_Activitys_Learning_Base: # take about when to convert time str to datetime
-    def __init__(self, desired_freq: int, synchronized_activitys_df: pd.DataFrame ,time_schedule_df: pd.DataFrame, numerical_type: np.object = np.single):
+    def __init__(self, desired_freq: int, synchronized_activitys_df: pd.DataFrame ,time_schedule_df: pd.DataFrame, numerical_type: np.object = np.single) -> None:
         self.data = {}
         self.numerical_type = numerical_type
         for activity in time_schedule_df["activity"].unique():
             self.data[activity] = Sequence_Activity_Execution(activity,numerical_type= self.numerical_type)
         synchronized_activitys_df_time_stamps_set = set(synchronized_activitys_df["Time"])
         #check_number_of_activitys = 0        
+
 
         for index, row in time_schedule_df.iterrows():
             time_begining = row["Started"]
@@ -263,7 +306,6 @@ class House_Activitys_Learning_Base: # take about when to convert time str to da
         # df_np_array = np.array(df, dtype= self.numerical_type)
         # df_np_array = df_np_array.reshape(df_np_array.shape[0],df_np_array.shape[1],1)
         df_np_array = np.zeros((df.shape[0],df.shape[1],df.iloc[0,0].shape[0]),dtype= self.numerical_type)
-        print(df.shape,df_np_array.shape)
         for i in tqdm(range(df_np_array.shape[0])):
             for j in range(df_np_array.shape[1]):
                     df_np_array[i,j] = df.iloc[i,j]
@@ -274,25 +316,33 @@ class House_Activitys_Learning_Base: # take about when to convert time str to da
         joined_df = joined_df.sample(frac=1).reset_index(drop=True)
         return joined_df.iloc[:,:-1], joined_df.iloc[:,-1]
 
-    def prepare_data_input_classification(self, ngram_size:int = 30, output_dtype="np_array") -> tuple :
-        input_ml_model_df = pd.DataFrame()
-        input_series = pd.Series(dtype= self.numerical_type)
+    def prepare_data_input_classification(self, ngram_size:int = 30, output_dtype="np_array", percentage_for_train: int = 0, days_for_train:list = [], days_for_test:list = []) -> tuple :
+        train_input_ml_model_df = pd.DataFrame()
+        train_input_series = pd.Series(dtype= self.numerical_type)
+        test_input_ml_model_df = pd.DataFrame()
+        test_input_series = pd.Series(dtype= self.numerical_type)
         for activity_name in self.data:
             activity = self.data[activity_name]
-            activity_df, class_series = activity.prepare_activity_input_classification(ngram_size)
-            input_ml_model_df = pd.concat([input_ml_model_df ,activity_df],axis=0)
-            input_series =  pd.concat([input_series, class_series])
+            train_activity_df, train_activity_series, test_activity_df, test_activity_series = activity.prepare_activity_input_classification(percentage_for_train,days_for_train, days_for_test, ngram_size)
+            train_input_ml_model_df = pd.concat([train_input_ml_model_df ,train_activity_df],axis=0)
+            train_input_series =  pd.concat([train_input_series, train_activity_series])
+            test_input_ml_model_df = pd.concat([test_input_ml_model_df ,test_activity_df],axis=0)
+            test_input_series =  pd.concat([test_input_series, test_activity_series])
         
-        input_ml_model_df.drop("Time",axis=1,inplace=True)
+        train_input_ml_model_df.drop("Time",axis=1,inplace=True)
+        test_input_ml_model_df.drop("Time",axis=1,inplace=True)
 
-        shuffled_input_ml_model_df, shuffled_input_series = self.shuffle_data_classification(input_ml_model_df, input_series)    
+        shuffled_train_input_ml_model_df, shuffled_train_input_series = self.shuffle_data_classification(train_input_ml_model_df, train_input_series)    
+        shuffled_test_input_ml_model_df, shuffled_test_input_series = self.shuffle_data_classification(test_input_ml_model_df, test_input_series)
+        
 
         if output_dtype == "np_array":
-            np_input_ml_model_df = self.convert_df_to_3d_np_array(shuffled_input_ml_model_df)
-            np_input_series = np.array(shuffled_input_series)
-
+            np_train_input_ml_model_df = self.convert_df_to_3d_np_array(shuffled_train_input_ml_model_df)
+            np_train_input_series = np.array(shuffled_train_input_series)
+            np_test_input_ml_model_df = self.convert_df_to_3d_np_array(shuffled_test_input_ml_model_df)
+            np_test_input_series = np.array(shuffled_test_input_series)
         
-        return np_input_ml_model_df, np_input_series
+        return np_train_input_ml_model_df, np_train_input_series, np_test_input_ml_model_df, np_test_input_series
     
 
 #''' next step: solve de deprecation on sktime and test model
