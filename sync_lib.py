@@ -1,7 +1,7 @@
 import pandas as pd
 import numpy as np
 from tqdm import tqdm
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.decomposition import PCA
 from nltk.util import ngrams
 
@@ -192,32 +192,35 @@ class Sequence_Activity_Execution:
         self.data = []
         self.name = name
         self.numerical_type = numerical_type
-        
+                
     def append_execution_sequence(self, execution: Execution_Activity, ):
         self.data.append(execution)
     
     def create_ngrams_df(self, original_df ,ngram_size):
        
         # define a function to generate n-grams for each column
-        
+
         def to_ngrams(col:pd.Series, ngram_size:int = 30) -> pd.Series:
             result = []
-            #print("col",col.size,col)
-            for i in range(col.size - ngram_size + 1):
-                ngram = pd.Series(col[i:i+ngram_size],dtype= self.numerical_type)
+            #print("col",col.size)
+            for i in range(col.size // ngram_size):#(col.size - ngram_size + 1):
+                ngram = pd.Series(col[i*ngram_size:(i+1)*ngram_size],dtype= self.numerical_type)#(col[i:i+ngram_size],dtype= self.numerical_type)
                 ngram_np_array = np.array(ngram,dtype= self.numerical_type)
                 result.append(ngram_np_array)
 
             result = pd.Series(result)
             return result
+        
         ngram_df = original_df.apply(to_ngrams, axis=0, args=(ngram_size,))
-        #print(ngram_df)
-        return ngram_df
+        percentil_95 = int((ngram_df.shape[0] * 95) / 100)
 
-    def extract_samples_from_execution(self,list_of_executions: list) -> pd.DataFrame:
+        return ngram_df.iloc[percentil_95:percentil_95+1][:]#.iloc[percentil_95:percentil_95+1][:]
+
+    def extract_samples_from_execution(self,list_of_executions: list, ngram_size:int = 30) -> pd.DataFrame:
         concated_samples_df = pd.DataFrame()
         for execution in list_of_executions:
             execution_df = execution.get_data()
+            execution_df = self.create_ngrams_df(execution_df,ngram_size)
             concated_samples_df = pd.concat([concated_samples_df ,execution_df],axis=0)
         return concated_samples_df
 
@@ -235,10 +238,17 @@ class Sequence_Activity_Execution:
 
         if percentage_for_train > 0:
 
+
             n_activitys = len(self.data)
             n_activitys_train = int((n_activitys* percentage_for_train) / 100)
             train_data_from_activity = self.data[:n_activitys_train]
             test_data_from_activity = self.data[n_activitys_train:]
+
+
+            print(self.name)
+            print("train_data_from_activity",len(train_data_from_activity))
+            print("test_data_from_activity",len(test_data_from_activity))
+            print("\n")
 
         elif len(days_for_train) > 0 and len(days_for_test) > 0:
             train_data_from_activity = []
@@ -259,17 +269,24 @@ class Sequence_Activity_Execution:
         test_input_series = pd.Series(dtype="float32")
 
         if len(train_data_from_activity) != 0:
-            train_input_ml_model_df = self.extract_samples_from_execution(train_data_from_activity)
-            train_input_ml_model_df = self.create_ngrams_df(train_input_ml_model_df, ngram_size)        
+            train_input_ml_model_df = self.extract_samples_from_execution(train_data_from_activity,ngram_size)
+            #train_input_ml_model_df = self.create_ngrams_df(train_input_ml_model_df, ngram_size)        
             train_input_series = pd.Series([self.name] * train_input_ml_model_df.shape[0] )
 
         if len(test_data_from_activity) != 0:
-            test_input_ml_model_df = self.extract_samples_from_execution(test_data_from_activity)
-            test_input_ml_model_df = self.create_ngrams_df(test_input_ml_model_df, ngram_size)
+            test_input_ml_model_df = self.extract_samples_from_execution(test_data_from_activity,ngram_size)
+            #test_input_ml_model_df = self.create_ngrams_df(test_input_ml_model_df, ngram_size)
             test_input_series = pd.Series([self.name] * test_input_ml_model_df.shape[0] )
 
         #print(train_input_ml_model_df.columns ,train_input_series)
         return train_input_ml_model_df, train_input_series, test_input_ml_model_df, test_input_series
+    
+    def join_activity_executions(self) -> pd.DataFrame:
+        concated_samples_df = pd.DataFrame()
+        for execution in self.data:
+            concated_samples_df = pd.concat([concated_samples_df ,execution.get_data()],axis=0)
+            
+        return concated_samples_df
 
 class House_Activitys_Learning_Base: # take about when to convert time str to datetime
     def __init__(self, desired_freq: int, synchronized_activitys_df: pd.DataFrame ,time_schedule_df: pd.DataFrame, numerical_type: np.object = np.single) -> None:
@@ -277,7 +294,8 @@ class House_Activitys_Learning_Base: # take about when to convert time str to da
         self.numerical_type = numerical_type
         for activity in time_schedule_df["activity"].unique():
             self.data[activity] = Sequence_Activity_Execution(activity,numerical_type= self.numerical_type)
-        synchronized_activitys_df_time_stamps_set = set(synchronized_activitys_df["Time"])
+        synchronized_activitys_df_time_stamps_set = set(synchronized_activitys_df["Time"][:])
+        print("synchronized_activitys_df_time_stamps_set",len(synchronized_activitys_df_time_stamps_set))
         #check_number_of_activitys = 0        
 
 
@@ -294,7 +312,7 @@ class House_Activitys_Learning_Base: # take about when to convert time str to da
             execution_df = synchronized_activitys_df[synchronized_activitys_df["Time"].isin(activitys_timenstamp_set_intersect)]
             #check_number_of_activitys += execution_df.shape[0] 
             if activitys_timenstamp_set_intersect == set():
-                print("data is empty for activity", activity_name, time_begining, time_end)
+                #print("data is empty for activity", activity_name, time_begining, time_end)
                 continue
             
 
@@ -322,6 +340,8 @@ class House_Activitys_Learning_Base: # take about when to convert time str to da
         test_input_ml_model_df = pd.DataFrame()
         test_input_series = pd.Series(dtype= self.numerical_type)
         for activity_name in self.data:
+            # if activity_name == "Aera":
+            #     continue 
             activity = self.data[activity_name]
             train_activity_df, train_activity_series, test_activity_df, test_activity_series = activity.prepare_activity_input_classification(percentage_for_train,days_for_train, days_for_test, ngram_size)
             train_input_ml_model_df = pd.concat([train_input_ml_model_df ,train_activity_df],axis=0)
@@ -329,12 +349,25 @@ class House_Activitys_Learning_Base: # take about when to convert time str to da
             test_input_ml_model_df = pd.concat([test_input_ml_model_df ,test_activity_df],axis=0)
             test_input_series =  pd.concat([test_input_series, test_activity_series])
         
+        print("train_input_ml_model_df",train_input_ml_model_df.shape)
+        print("train_input_series",train_input_series.shape)
+        print("test_input_ml_model_df",test_input_ml_model_df.shape)
+        print("test_input_series",test_input_series.shape)
+
+        print(train_input_ml_model_df.columns)
+        print(test_activity_df.columns)
+
         train_input_ml_model_df.drop("Time",axis=1,inplace=True)
         test_input_ml_model_df.drop("Time",axis=1,inplace=True)
 
-        shuffled_train_input_ml_model_df, shuffled_train_input_series = self.shuffle_data_classification(train_input_ml_model_df, train_input_series)    
-        shuffled_test_input_ml_model_df, shuffled_test_input_series = self.shuffle_data_classification(test_input_ml_model_df, test_input_series)
-        
+        #shuffled_train_input_ml_model_df, shuffled_train_input_series = self.shuffle_data_classification(train_input_ml_model_df, train_input_series)    
+        #shuffled_test_input_ml_model_df, shuffled_test_input_series = self.shuffle_data_classification(test_input_ml_model_df, test_input_series)
+
+        shuffled_train_input_ml_model_df = train_input_ml_model_df
+        shuffled_train_input_series = train_input_series
+        shuffled_test_input_ml_model_df = test_input_ml_model_df
+        shuffled_test_input_series = test_input_series
+
 
         if output_dtype == "np_array":
             np_train_input_ml_model_df = self.convert_df_to_3d_np_array(shuffled_train_input_ml_model_df)
@@ -344,6 +377,11 @@ class House_Activitys_Learning_Base: # take about when to convert time str to da
         
         return np_train_input_ml_model_df, np_train_input_series, np_test_input_ml_model_df, np_test_input_series
     
+    def save_data_to_csv(self, path: str):
+        for activity_name in self.data:
+            activity = self.data[activity_name]
+            csv_data = activity.join_activity_executions()
+            csv_data.to_csv(f"{path}/{activity_name}_samples.csv",index=False)
 
-#''' next step: solve de deprecation on sktime and test model
+#'''
 

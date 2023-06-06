@@ -11,6 +11,7 @@ from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, r
 import matplotlib.pyplot as plt
 
 
+
 # Load data
 
 train_input_ml_model_df = np.load('Generated Data/train_input_ml_model_df.npy',allow_pickle=True)
@@ -19,6 +20,7 @@ test_input_ml_model_df = np.load('Generated Data/test_input_ml_model_df.npy',all
 test_input_series = np.load('Generated Data/test_input_series.npy',allow_pickle=True)
 
 print("loaded",train_input_ml_model_df.shape,train_input_series.shape,test_input_ml_model_df.shape,test_input_series.shape)
+
 
 
 n_samples_train = train_input_series.shape[0]
@@ -31,8 +33,8 @@ input_x_test = test_input_ml_model_df
 input_y_test = test_input_series
 
 
-#'''
-knn_dtw_classifier = KNeighborsTimeSeriesClassifier(n_neighbors=1 , distance="dtw",algorithm = "brute")
+# '''
+knn_dtw_classifier = KNeighborsTimeSeriesClassifier(n_neighbors=1 , distance="wddtw",algorithm = "brute")
 
 start_time = time()
 knn_dtw_classifier.fit(input_x_train, input_y_train)
@@ -52,7 +54,7 @@ previous_checkpoint = 0
 checkpoint = 0
 for i in range(1, n_checkpoints+1):
     checkpoint = int(len_test * ( i / n_checkpoints) )
-    print("checkpoint",checkpoint,previous_checkpoint)
+    print(f"'output{previous_checkpoint}_{checkpoint}.npy',")
     predicted_acttivitys = knn_dtw_classifier.predict(input_x_test[previous_checkpoint:checkpoint])
     #predicted_acttivitys.tofile(f'model_output/output{previous_checkpoint}_{checkpoint}.txt',sep=",")
     np.save(f'model_output/output{previous_checkpoint}_{checkpoint}.npy',predicted_acttivitys)
@@ -64,10 +66,19 @@ knn_dtw_classifier.reset()
 
 # '''
 
-#'''
+output_file_names = [
+'output0_8.npy',
+'output8_16.npy',
+'output16_24.npy',
+'output24_32.npy',
+'output32_40.npy',
+'output40_48.npy',
+'output48_56.npy',
+'output56_64.npy',
+'output64_72.npy',
+'output72_81.npy'
+]
 
-# output_file_names = ['output0_796.npy', 'output796_1592.npy', 'output1592_2388.npy', 'output2388_3184.npy', 'output3184_3980.npy', 'output3980_4776.npy', 'output4776_5572.npy', 'output5572_6368.npy', 'output6368_7164.npy', 'output7164_7960.npy']
-output_file_names = ['output0_223.npy', 'output223_446.npy', 'output446_669.npy', 'output669_892.npy', 'output892_1115.npy', 'output1115_1338.npy', 'output1338_1561.npy', 'output1561_1784.npy', 'output1784_2007.npy', 'output2007_2230.npy']
 print(output_file_names)
 
 output_labels = np.array([])
@@ -87,20 +98,14 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
 disp.plot()
 ax = plt.gca()
 ax.xaxis.set_ticklabels(ax.xaxis.get_ticklabels(), rotation=90)
+cm_title = "acuracy: "+str(accuracy_score(input_y_test, output_labels))+" recall: "+str(recall_score(input_y_test, output_labels,average='macro'))
+disp.ax_.set_title(cm_title)
 plt.savefig('confusion_matrix.png')
 print(cm)
 
 
 #'''
 
-# next steps: compare one day for train another for test: being close days
-# them make the same thing for separate days with a long distance in time
-# after make a kind of cross validation with a sliding window through all the data
-# where for example the train is 5 day and the test is the next 3 days
 
-    # Actual Acuracy test 
-
-# make graphs to compare the predictions to the actual results
-
-
-
+# 1. create new class called no activity
+# 2. check this class by looking at the confusion matrix and searching some days where there is activity in this new dataser 
