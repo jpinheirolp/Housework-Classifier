@@ -192,7 +192,7 @@ class Sequence_Activity_Execution:
         self.data = []
         self.name = name
         self.numerical_type = numerical_type
-                
+
     def append_execution_sequence(self, execution: Execution_Activity, ):
         self.data.append(execution)
     
@@ -237,7 +237,6 @@ class Sequence_Activity_Execution:
 
 
         if percentage_for_train > 0:
-
 
             n_activitys = len(self.data)
             n_activitys_train = int((n_activitys* percentage_for_train) / 100)
@@ -294,10 +293,14 @@ class House_Activitys_Learning_Base: # take about when to convert time str to da
         self.numerical_type = numerical_type
         for activity in time_schedule_df["activity"].unique():
             self.data[activity] = Sequence_Activity_Execution(activity,numerical_type= self.numerical_type)
+
+        self.data["no_activity"] = Sequence_Activity_Execution("no_activity",numerical_type= self.numerical_type)
         synchronized_activitys_df_time_stamps_set = set(synchronized_activitys_df["Time"][:])
         print("synchronized_activitys_df_time_stamps_set",len(synchronized_activitys_df_time_stamps_set))
         #check_number_of_activitys = 0        
 
+        # 1st idea for creating "no activitys" class: append all sets of activitys and then remove the intersection of all activitys
+        all_activitys_timestamp_set = set()
 
         for index, row in time_schedule_df.iterrows():
             time_begining = row["Started"]
@@ -308,6 +311,8 @@ class House_Activitys_Learning_Base: # take about when to convert time str to da
             activity_comment = row["Comments"]
             activitys_timenstamp_sequence = pd.date_range(start= time_begining, end= time_end, freq= f"{desired_freq}S")
             activitys_timenstamp_set = set(activitys_timenstamp_sequence)
+            all_activitys_timestamp_set = all_activitys_timestamp_set.union(activitys_timenstamp_set)
+            
             activitys_timenstamp_set_intersect = activitys_timenstamp_set.intersection(synchronized_activitys_df_time_stamps_set)
             execution_df = synchronized_activitys_df[synchronized_activitys_df["Time"].isin(activitys_timenstamp_set_intersect)]
             #check_number_of_activitys += execution_df.shape[0] 
@@ -315,9 +320,19 @@ class House_Activitys_Learning_Base: # take about when to convert time str to da
                 #print("data is empty for activity", activity_name, time_begining, time_end)
                 continue
             
-
             execution_activity_instance = Execution_Activity(execution_df,time_begining,time_end,activity_comment)
             self.data[activity_name].append_execution_sequence(execution_activity_instance)
+
+        MINIMUM_EXECUTION_SIZE = 60
+
+        all_no_activity_executions = synchronized_activitys_df[~synchronized_activitys_df["Time"].isin(all_activitys_timestamp_set)]
+        number_of_executions_with_no_activity = len(all_no_activity_executions.index) // MINIMUM_EXECUTION_SIZE #MINIMUM_EXECUTION_SIZE is the number of executions in the shortest activity that lasts 10 minutes
+        for i in range(number_of_executions_with_no_activity):
+            no_activity_execution_df = synchronized_activitys_df.iloc[i*MINIMUM_EXECUTION_SIZE:(i+1)*MINIMUM_EXECUTION_SIZE,:]
+        
+        
+            execution_activity_instance = Execution_Activity(no_activity_execution_df,time_begining,time_end,activity_comment)
+            self.data["no_activity"].append_execution_sequence(execution_activity_instance)
         #print("check_number_of_activitys",check_number_of_activitys)
 
     def convert_df_to_3d_np_array(self, df: pd.DataFrame) -> np.array:

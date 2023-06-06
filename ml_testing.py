@@ -33,7 +33,7 @@ input_x_test = test_input_ml_model_df
 input_y_test = test_input_series
 
 
-# '''
+'''
 knn_dtw_classifier = KNeighborsTimeSeriesClassifier(n_neighbors=1 , distance="wddtw",algorithm = "brute")
 
 start_time = time()
@@ -67,16 +67,17 @@ knn_dtw_classifier.reset()
 # '''
 
 output_file_names = [
-'output0_8.npy',
-'output8_16.npy',
-'output16_24.npy',
-'output24_32.npy',
-'output32_40.npy',
-'output40_48.npy',
-'output48_56.npy',
-'output56_64.npy',
-'output64_72.npy',
-'output72_81.npy'
+
+'output0_258.npy',
+'output258_517.npy',
+'output517_776.npy',
+'output776_1035.npy',
+'output1035_1294.npy',
+'output1294_1553.npy',
+'output1553_1812.npy',
+'output1812_2071.npy',
+'output2071_2330.npy',
+'output2330_2589.npy'
 ]
 
 print(output_file_names)
@@ -90,7 +91,7 @@ print(input_y_test.shape)
 # Calculating the accuracy of classifier
 print(f"Accuracy of the classifier is: {accuracy_score(input_y_test, output_labels)}")
 
-labels = ["Aera", "AS1", "Asp", "Bougie", "BricoC", "BricoP", "Nett", "Oeuf", "Saber", "SdB"]
+labels = ["Aera", "AS1", "Asp", "Bougie", "BricoC", "BricoP", "Nett", "Oeuf", "Saber", "SdB", "no_activity"]
 
 cm = confusion_matrix(input_y_test, output_labels,labels=labels)
 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
@@ -108,4 +109,7 @@ print(cm)
 
 
 # 1. create new class called no activity
-# 2. check this class by looking at the confusion matrix and searching some days where there is activity in this new dataser 
+# 2. check this class by looking at the confusion matrix and searching some days where there is activity in this new dataset
+# 3. study feed foward neural network
+# 4. study ffn in python librarys
+# 5. try implementing ffn in python
