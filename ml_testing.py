@@ -5,6 +5,7 @@
 #from nltk.util import ngrams
 import numpy as np
 from sktime.classification.distance_based import KNeighborsTimeSeriesClassifier
+from sktime.classification.deep_learning.mlp import MLPClassifier
 #from tqdm import tqdm
 from time import time
 from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, ConfusionMatrixDisplay
@@ -32,64 +33,57 @@ input_y_train = train_input_series
 input_x_test = test_input_ml_model_df
 input_y_test = test_input_series
 
-
-'''
-knn_dtw_classifier = KNeighborsTimeSeriesClassifier(n_neighbors=1 , distance="wddtw",algorithm = "brute")
+# '''
+#classifier = KNeighborsTimeSeriesClassifier(n_neighbors=1 , distance="wddtw", algorithm = "brute")
+classifier = MLPClassifier(n_epochs=20, batch_size=4, activation='relu', optimizer='adam')
 
 start_time = time()
-knn_dtw_classifier.fit(input_x_train, input_y_train)
+classifier.fit(input_x_train, input_y_train)
 end_time = time()
 print("time to fit "+ str(n_samples_train),end_time - start_time)
 
 
-start_time = time()
-predicted_acttivitys = knn_dtw_classifier.predict(input_x_test[-1:])
-end_time = time()
+# start_time = time()
+# predicted_acttivitys = classifier.predict(input_x_test)#input_x_test[-1:])
+# end_time = time()
 print("time to predict "+ str(n_samples_train),end_time - start_time)
 
 len_test = input_x_test.shape[0]
 
-n_checkpoints = 10
-previous_checkpoint = 0
-checkpoint = 0
-for i in range(1, n_checkpoints+1):
-    checkpoint = int(len_test * ( i / n_checkpoints) )
-    print(f"'output{previous_checkpoint}_{checkpoint}.npy',")
-    predicted_acttivitys = knn_dtw_classifier.predict(input_x_test[previous_checkpoint:checkpoint])
-    #predicted_acttivitys.tofile(f'model_output/output{previous_checkpoint}_{checkpoint}.txt',sep=",")
-    np.save(f'model_output/output{previous_checkpoint}_{checkpoint}.npy',predicted_acttivitys)
-    previous_checkpoint = checkpoint
-    #print(predicted_acttivitys)
-    
+# n_checkpoints = 10
+# previous_checkpoint = 0
+# checkpoint = 0
+# for i in range(1, n_checkpoints+1):
+#     checkpoint = int(len_test * ( i / n_checkpoints) )
+#     print(f"'output{previous_checkpoint}_{checkpoint}.npy',")
+#     predicted_acttivitys = classifier.predict(input_x_test[previous_checkpoint:checkpoint])
+#     #predicted_acttivitys.tofile(f'model_output/output{previous_checkpoint}_{checkpoint}.txt',sep=",")
+#     np.save(f'model_output/output{previous_checkpoint}_{checkpoint}.npy',predicted_acttivitys)
+#     previous_checkpoint = checkpoint
+#     #print(predicted_acttivitys)
 
-knn_dtw_classifier.reset()
+output_labels = classifier.predict(input_x_test)
 
-# '''
+classifier.reset()
 
-output_file_names = [
+#'''
 
-'output0_258.npy',
-'output258_517.npy',
-'output517_776.npy',
-'output776_1035.npy',
-'output1035_1294.npy',
-'output1294_1553.npy',
-'output1553_1812.npy',
-'output1812_2071.npy',
-'output2071_2330.npy',
-'output2330_2589.npy'
-]
+#'''
 
-print(output_file_names)
+# output_file_names = ['output0_8.npy', 'output8_16.npy', 'output16_24.npy', 'output24_32.npy', 'output32_40.npy', 'output40_48.npy', 'output48_56.npy', 'output56_64.npy', 'output64_72.npy', 'output72_81.npy']
 
-output_labels = np.array([])
-for file_name in output_file_names:
-    output_labels = np.append(output_labels,np.load(f'model_output/{file_name}',allow_pickle=True))
-print(output_labels.shape)
-print(input_y_test.shape)
+
+# print(output_file_names)
+
+# output_labels = np.array([])
+# for file_name in output_file_names:
+#     output_labels = np.append(output_labels,np.load(f'model_output/{file_name}',allow_pickle=True))
+# print(output_labels.shape)
+# print(input_y_test.shape)
 
 # Calculating the accuracy of classifier
 print(f"Accuracy of the classifier is: {accuracy_score(input_y_test, output_labels)}")
+
 
 labels = ["Aera", "AS1", "Asp", "Bougie", "BricoC", "BricoP", "Nett", "Oeuf", "Saber", "SdB", "no_activity"]
 
@@ -105,11 +99,34 @@ plt.savefig('confusion_matrix.png')
 print(cm)
 
 
-#'''
+#''' 
+# !!! make plot smother with exponential learning rate
+# !!! fix problem in the number of no_activity samples / maybe just remove no_activity samples sync.py
+
+# 1. run sktime on gpu <_/ 
+# 2. pick randon samples from no_activity class so that it has the same number of samples as the aeration class <_/ 
+# 3. study fnn
+# 4. tunne fnn
+#     - study the effect of the number of layers
+#     - study the effect of the number of neurons in each layer
+#     - study the effect of the optimizer
+#     - study the effect of the learning rate
+#     - study the effect of the loss function
+#     - study the effect of the batch size
+#     - study the effect of the number of epochs: plot the loss and accuracy change with the number of epochs
+# 5. study lstm
+# 6. tunne lstm
 
 
-# 1. create new class called no activity
-# 2. check this class by looking at the confusion matrix and searching some days where there is activity in this new dataset
-# 3. study feed foward neural network
-# 4. study ffn in python librarys
-# 5. try implementing ffn in python
+# . study weakly supervised learning maybe
+# . You can use a weighted loss function that gives a larger penalty to missing the least frequent classes.
+# . ou can help balanceunbalanced classes by generating synthetic data with techniques such as SMOTE (Chawlaet al., 2002) or ADASYN (He et al., 2008).
+# . carefully consider outliers in your data
+# . You can also introduce new attributes based on your domain knowledge
+# . It can be helpful to cluster your data and then visualize a prototype data point at the center of each clusterm It is also helpful to detect outliers that are far from the prototypes;
+# . n order to visualize them we can do dimension-ality reduction, projecting the data down to a map in two dimension, The map can’t maintain all relationships between data points, but should have the prop-erty that similar points in the original data set are close together in the map. A technique called t-distributed stochastic neighbor embedding (t-SNE) does just that
+
+
+
+
+#tip: to run on anaconda with Gpu delete model_output folder before making computations beacuse it has a hard time with overwriting 
