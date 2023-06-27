@@ -3,14 +3,15 @@
 #from sklearn.preprocessing import StandardScaler
 #from sklearn.decomposition import PCA
 #from nltk.util import ngrams
+
 import numpy as np
 from sktime.classification.distance_based import KNeighborsTimeSeriesClassifier
 from sktime.classification.deep_learning.mlp import MLPClassifier
 #from tqdm import tqdm
 from time import time
-from sklearn.metrics import accuracy_score, confusion_matrix, precision_score, recall_score, ConfusionMatrixDisplay
+from sklearn.metrics import accuracy_score, confusion_matrix, roc_auc_score, recall_score, ConfusionMatrixDisplay
 import matplotlib.pyplot as plt
-
+from catboost import CatBoostClassifier, Pool, cv
 
 
 # Load data
@@ -27,18 +28,56 @@ print("loaded",train_input_ml_model_df.shape,train_input_series.shape,test_input
 n_samples_train = train_input_series.shape[0]
 n_samples_test = test_input_series.shape[0]
 
-input_x_train = train_input_ml_model_df
+input_x_train = train_input_ml_model_df.reshape((n_samples_train,train_input_ml_model_df.shape[2]))
 input_y_train = train_input_series
 
-input_x_test = test_input_ml_model_df
+input_x_test = test_input_ml_model_df.reshape((n_samples_test,test_input_ml_model_df.shape[2]))
 input_y_test = test_input_series
 
+print("reshaped",input_x_train.shape,input_y_train.shape,input_x_test.shape,input_y_test.shape)
+
+class_weights_dict = {}
+class_weights_list = []
+
+
+class_elements, class_counts = np.unique(input_y_train, return_counts=True)
+print("class_elements",class_elements)
+print("class_counts",class_counts)
+for i in range(len(class_counts)):
+    class_weights_dict[class_elements[i]] = ( 1 - (class_counts[i] / n_samples_train) )**2
+    class_weights_list.append(1 - (class_counts[i] / n_samples_train))
+
+class_weights_list = []
+
+
+
+# def binarize_samples(classifiers_class):
+#     class_returned = classifiers_class
+#     if classifiers_class != "AS1":
+#         class_returned = "Not_AS1"
+#     return class_returned
+
+# vectorizer_binarizer_samples = np.vectorize(binarize_samples)
+# input_y_train_binarized = vectorizer_binarizer_samples(input_y_train)
+# input_y_test_binarized = vectorizer_binarizer_samples(input_y_test)
+
 # '''
-#classifier = KNeighborsTimeSeriesClassifier(n_neighbors=1 , distance="wddtw", algorithm = "brute")
-classifier = MLPClassifier(n_epochs=20, batch_size=4, activation='relu', optimizer='adam')
+classifier = CatBoostClassifier(
+                        loss_function='MultiClass',
+                        iterations=300,
+                        depth=10,
+                        #    learning_rate=1,
+                        verbose=True,
+                        class_weights=class_weights_dict
+                        )
+
+# classifier = KNeighborsTimeSeriesClassifier(n_neighbors=1 , distance="wddtw", algorithm = "brute")
+# classifier = MLPClassifier(n_epochs=20, batch_size=4, activation='relu', optimizer='adam')
+
+print("class_weight", len(class_weights_dict))
 
 start_time = time()
-classifier.fit(input_x_train, input_y_train)
+classifier.fit(Pool(input_x_train, input_y_train))
 end_time = time()
 print("time to fit "+ str(n_samples_train),end_time - start_time)
 
@@ -50,42 +89,65 @@ print("time to predict "+ str(n_samples_train),end_time - start_time)
 
 len_test = input_x_test.shape[0]
 
-# n_checkpoints = 10
-# previous_checkpoint = 0
-# checkpoint = 0
-# for i in range(1, n_checkpoints+1):
-#     checkpoint = int(len_test * ( i / n_checkpoints) )
-#     print(f"'output{previous_checkpoint}_{checkpoint}.npy',")
-#     predicted_acttivitys = classifier.predict(input_x_test[previous_checkpoint:checkpoint])
-#     #predicted_acttivitys.tofile(f'model_output/output{previous_checkpoint}_{checkpoint}.txt',sep=",")
-#     np.save(f'model_output/output{previous_checkpoint}_{checkpoint}.npy',predicted_acttivitys)
-#     previous_checkpoint = checkpoint
-#     #print(predicted_acttivitys)
 
-output_labels = classifier.predict(input_x_test)
+output_labels = classifier.predict(Pool(input_x_test))
+classifier.save_model("./catboost_classifier", format='cbm')
 
-classifier.reset()
+# classifier.reset()
+
+
+# enhanced_output_labels = output_labels[:]
+
+# for i in range(enhanced_output_labels.shape[0]):
+#     if output_labels[i] == "Not_AS1" and input_y_test[i] != "AS1":
+#         enhanced_output_labels[i] = input_y_test[i]
+
+# classifier_2 = KNeighborsTimeSeriesClassifier(n_neighbors=1 , distance="wddtw", algorithm = "brute")
+
+# input_x_test_without_AS1 = input_x_test[:]
+
+# indexes_to_delete = []
+# deleted_items_input_y_test = []
+# deleted_output_labels = []
+
+# for i in range(output_labels.shape[0]):
+#     if output_labels[i] == "AS1":
+#         indexes_to_delete.append(i)
+
+# deleted_items_input_y_test = np.array(input_y_test[indexes_to_delete])
+# deleted_output_labels = np.array(["AS1"]*len(indexes_to_delete))
+
+# input_x_test_without_AS1 = np.delete(input_x_test_without_AS1, indexes_to_delete, axis=0)
+# input_y_test_without_AS1 = np.delete(input_y_test, indexes_to_delete, axis=0)
+
+# indexes_to_delete = []
+# for i in range(input_y_train.shape[0]):
+#     if input_y_train[i] == "AS1":
+#         indexes_to_delete.append(i)
+
+# input_x_train = np.delete(input_x_train, indexes_to_delete, axis=0)
+# input_y_train = np.delete(input_y_train, indexes_to_delete, axis=0)
+
+# classifier_2.fit(input_x_train, input_y_train)
+
+
+# output_labels = classifier_2.predict(input_x_test_without_AS1)
+
+# output_labels = np.concatenate((output_labels,deleted_output_labels),axis=0)
+# input_y_test_without_AS1 = np.concatenate((input_y_test_without_AS1,deleted_items_input_y_test),axis=0)
+
+
+# classifier_2.reset()
 
 #'''
 
 #'''
-
-# output_file_names = ['output0_8.npy', 'output8_16.npy', 'output16_24.npy', 'output24_32.npy', 'output32_40.npy', 'output40_48.npy', 'output48_56.npy', 'output56_64.npy', 'output64_72.npy', 'output72_81.npy']
-
-
-# print(output_file_names)
-
-# output_labels = np.array([])
-# for file_name in output_file_names:
-#     output_labels = np.append(output_labels,np.load(f'model_output/{file_name}',allow_pickle=True))
-# print(output_labels.shape)
-# print(input_y_test.shape)
 
 # Calculating the accuracy of classifier
 print(f"Accuracy of the classifier is: {accuracy_score(input_y_test, output_labels)}")
 
 
-labels = ["Aera", "AS1", "Asp", "Bougie", "BricoC", "BricoP", "Nett", "Oeuf", "Saber", "SdB", "no_activity"]
+labels = ["Aera", "AS1", "Asp", "Bougie", "BricoC", "BricoP", "Nett", "Oeuf", "Saber", "SdB", "no_activity"]#, "Not_AS1"]
 
 cm = confusion_matrix(input_y_test, output_labels,labels=labels)
 disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
@@ -93,40 +155,18 @@ disp = ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=labels)
 disp.plot()
 ax = plt.gca()
 ax.xaxis.set_ticklabels(ax.xaxis.get_ticklabels(), rotation=90)
-cm_title = "acuracy: "+str(accuracy_score(input_y_test, output_labels))+" recall: "+str(recall_score(input_y_test, output_labels,average='macro'))
-disp.ax_.set_title(cm_title)
+cm_title = "acuracy: "+str(accuracy_score(input_y_test, output_labels)) + " recall: " + str(recall_score(input_y_test, output_labels,average='macro'))
+disp.ax_.set_title(cm_title) #+ "roc_auc_score: " + str(roc_auc_score(input_y_test, output_labels,average='samples', multi_class='ovr'))
 plt.savefig('confusion_matrix.png')
 print(cm)
 
 
 #''' 
-# !!! make plot smother with exponential learning rate
-# !!! fix problem in the number of no_activity samples / maybe just remove no_activity samples sync.py
 
-# 1. run sktime on gpu <_/ 
-# 2. pick randon samples from no_activity class so that it has the same number of samples as the aeration class <_/ 
-# 3. study fnn
-# 4. tunne fnn
-#     - study the effect of the number of layers
-#     - study the effect of the number of neurons in each layer
-#     - study the effect of the optimizer
-#     - study the effect of the learning rate
-#     - study the effect of the loss function
-#     - study the effect of the batch size
-#     - study the effect of the number of epochs: plot the loss and accuracy change with the number of epochs
-# 5. study lstm
-# 6. tunne lstm
+# in catboost put different weights in each class prioratizing the least frenquent classes, accordingly to the medium article
 
-
-# . study weakly supervised learning maybe
-# . You can use a weighted loss function that gives a larger penalty to missing the least frequent classes.
-# . ou can help balanceunbalanced classes by generating synthetic data with techniques such as SMOTE (Chawlaet al., 2002) or ADASYN (He et al., 2008).
-# . carefully consider outliers in your data
-# . You can also introduce new attributes based on your domain knowledge
-# . It can be helpful to cluster your data and then visualize a prototype data point at the center of each clusterm It is also helpful to detect outliers that are far from the prototypes;
-# . n order to visualize them we can do dimension-ality reduction, projecting the data down to a map in two dimension, The map can’t maintain all relationships between data points, but should have the prop-erty that similar points in the original data set are close together in the map. A technique called t-distributed stochastic neighbor embedding (t-SNE) does just that
+# !!! try to penalize false negatives related to AS1 class: it looks like the data from the beggining of the activitys is always classified as AS1
+# !!! make so that every class has about the same number of samples
 
 
 
-
-#tip: to run on anaconda with Gpu delete model_output folder before making computations beacuse it has a hard time with overwriting 

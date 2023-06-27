@@ -6,6 +6,7 @@ Piano
 Pods
 model_output
 Validation Data
+Outlier detection
 acelerating_dtw_article.pdf
 DL_time series_classification.pdf
 multivariate_time_series_classification.pdf
@@ -14,5 +15,5 @@ Activitys_time_schedule.csv
 knn_input_matrix.png
 learning_pandas.py
 sync.py 
-housework_classifier.odp
-housework_classifier_presentation.odp
+Descriptive Material 
+catboost_info
