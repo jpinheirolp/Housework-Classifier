@@ -7,12 +7,12 @@ class NGram_Generator:
 
     def create_2D_ngrams_series_from_1D_series(self,col:pd.Series, ngram_size:int = 30) -> pd.Series:
         result = []
-        #print("col",col.size)
-        for i in range(col.size - ngram_size + 1):#(col.size // ngram_size ):#
-            ngram = pd.Series(col[i:i+ngram_size],dtype= self.numerical_type)#(col[i*ngram_size:(i+1)*ngram_size],dtype= self.numerical_type)#
+        
+        for i in range(col.size - ngram_size + 1):
+            ngram = pd.Series(col[i:i+ngram_size],dtype= self.numerical_type)
             ngram_np_array = np.array(ngram,dtype= self.numerical_type)
             result.append(ngram_np_array)
-
+    
         result = pd.Series(result) #fix the type of the series it is causing a warning
         return result
     
