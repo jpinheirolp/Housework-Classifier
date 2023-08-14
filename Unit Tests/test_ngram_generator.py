@@ -3,7 +3,7 @@ from context import NGram_Generator
 import pandas as pd
 import numpy as np
 
-class Test_Execution_Activity(unittest.TestCase):
+class Test_Ngram_Generator(unittest.TestCase):
 
     def setUp(self):
         self.ngram_generator = NGram_Generator(numerical_type=np.single)
