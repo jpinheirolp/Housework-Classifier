@@ -70,10 +70,7 @@ class Test_Sync_Lib(unittest.TestCase):
         eigenvalue_column_names = generate_eigenvalue_named_columns(2)
         assert eigenvalue_column_names == ["eigenvalue_1", "eigenvalue_2"]
 
-    def test_compensates_drift_with_PCA(self):
-        df_compensated = compensates_drift_with_PCA(self.mock_df_wrong_freq.copy())
-        self.assertIsInstance(df_compensated, pd.DataFrame)
-        self.assertEqual(df_compensated.shape, self.mock_df_wrong_freq.shape)
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -43,4 +43,8 @@ class Test_House_Activitys_Learning_Base(unittest.TestCase):
         self.assertIsInstance(np_test_input_series, np.ndarray)
         
     def test_save_data_to_csv(self):
-        pass
+        self.house_activitys_learning_base.save_data_to_csv("./Generated CSVs")
+        a_column_file = open("./Generated CSVs/A_samples.csv", "r")
+        a_column_file_lines = a_column_file.readlines()
+        self.assertNotEqual(len(a_column_file_lines), 0)
+        a_column_file.close()
